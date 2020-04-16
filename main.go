@@ -15,6 +15,7 @@ import (
 )
 
 var cluster, clientID, natsURL, subject string
+var subs stan.Subscription
 
 func main() {
 	flag.StringVar(&cluster, "cluster", "", "nats streaming cluster")
@@ -24,7 +25,7 @@ func main() {
 
 	flag.Parse()
 
-	_, err := kumnats.NewNATSWithCallback(
+	n, err := kumnats.NewNATSWithCallback(
 		cluster,
 		clientID,
 		natsURL,
@@ -34,6 +35,12 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	defer func() {
+		if subs != nil {
+			_ = subs.Unsubscribe()
+		}
+		_ = n.Close()
+	}()
 
 	signalChan := make(chan os.Signal, 1)
 	signal.Notify(signalChan, os.Interrupt)
@@ -44,7 +51,7 @@ func main() {
 
 func natsSubscriberConnectCallback() kumnats.NatsCallback {
 	return func(nats kumnats.NATS) {
-		_, err := nats.Subscribe(subject, func(msg *stan.Msg) {
+		s, err := nats.Subscribe(subject, func(msg *stan.Msg) {
 			m := new(kumnats.NatsMessage)
 			err := tapao.Unmarshal(msg.Data, m, tapao.FallbackWith(tapao.JSON))
 			if err != nil {
@@ -58,6 +65,7 @@ func natsSubscriberConnectCallback() kumnats.NatsCallback {
 		if err != nil {
 			log.Fatal(err)
 		}
+		subs = s
 		fmt.Println("Subscribing....")
 	}
 }

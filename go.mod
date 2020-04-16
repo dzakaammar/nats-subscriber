@@ -1,10 +1,10 @@
 module github.com/dzakaammar/nats-subscriber
 
-go 1.14
+go 1.12
 
 require (
-	github.com/gomodule/redigo v2.0.0+incompatible
 	github.com/kumparan/kumnats v1.2.1
+	github.com/kumparan/tapao v1.0.0
 	github.com/nats-io/go-nats-streaming v0.4.2
 	golang.org/x/net v0.0.0-20181220203305-927f97764cc3 // indirect
 	labix.org/v2/mgo v0.0.0-20140701140051-000000000287 // indirect
