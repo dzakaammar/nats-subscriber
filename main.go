@@ -10,12 +10,22 @@ import (
 
 	"github.com/kumparan/tapao"
 
-	"github.com/kumparan/kumnats"
+	"github.com/kumparan/kumnats/v2"
 	stan "github.com/nats-io/go-nats-streaming"
 )
 
 var cluster, clientID, natsURL, subject string
 var subs stan.Subscription
+
+type Message struct {
+	ID   string `json:"id"`
+	Type string `json:"type"`
+	Time string `json:"time"`
+}
+
+func (m *Message) ParseFromBytes(data []byte) error {
+	return tapao.Unmarshal(data, &m, tapao.FallbackWith(tapao.JSON))
+}
 
 func main() {
 	flag.StringVar(&cluster, "cluster", "", "nats streaming cluster")
@@ -51,16 +61,15 @@ func main() {
 
 func natsSubscriberConnectCallback() kumnats.NatsCallback {
 	return func(nats kumnats.NATS) {
-		s, err := nats.Subscribe(subject, func(msg *stan.Msg) {
-			m := new(kumnats.NatsMessage)
-			err := tapao.Unmarshal(msg.Data, m, tapao.FallbackWith(tapao.JSON))
-			if err != nil {
-				log.Println(err)
-				return
+		s, err := nats.Subscribe(subject, kumnats.NewNATSMessageHandler(new(Message), 1, 1*time.Second, func(msg kumnats.MessagePayload) error {
+			data, ok := msg.(*Message)
+			if !ok {
+				return fmt.Errorf("error casting nats message\n")
 			}
 
-			fmt.Printf("Got message. ID : %d, Type: %s, Time: %s\n", m.ID, m.Type, m.Time)
-		})
+			fmt.Printf("Got message. ID : %s, Type: %s, Time: %s\n", data.ID, data.Type, data.Time)
+			return nil
+		}), stan.SetManualAckMode())
 
 		if err != nil {
 			log.Fatal(err)
